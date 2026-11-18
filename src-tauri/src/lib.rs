@@ -8,7 +8,6 @@ mod services;
 mod state;
 
 use serde::Serialize;
-use tauri::Manager;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,18 +70,14 @@ fn launch_args() -> Vec<String> {
     std::env::args().skip(1).collect()
 }
 
-async fn elevated_action(app: tauri::AppHandle, action: &'static str, guid: String, lang: Option<String>) -> Result<ActionResult, String> {
+async fn elevated_action(action: &'static str, guid: String, lang: Option<String>) -> Result<ActionResult, String> {
     if !state::valid_guid(&guid) {
         return Err("err.invalid_guid".into());
     }
     let lang = match lang.as_deref() { Some("en") => "en", _ => "pt" };
-    let dll = app
-        .path()
-        .resolve("resources/MusixAPO.dll", tauri::path::BaseDirectory::Resource)
-        .map_err(|e| format!("err.resource|{e}"))?;
     let exe = std::env::current_exe().map_err(|e| format!("err.exe|{e}"))?;
     tauri::async_runtime::spawn_blocking(move || {
-        let args = format!("--elevated {action} {guid} --lang {lang} --dll \"{}\"", dll.display());
+        let args = format!("--elevated {action} {guid} --lang {lang}");
         let code = elevate::run_elevated(&exe, &args)?;
         let log = std::fs::read_to_string(config::log_path()).unwrap_or_else(|_| "(sem registro da ação)".into());
         Ok(ActionResult { ok: code == 0, code, log })
@@ -92,13 +87,13 @@ async fn elevated_action(app: tauri::AppHandle, action: &'static str, guid: Stri
 }
 
 #[tauri::command]
-async fn install_output(app: tauri::AppHandle, guid: String, lang: Option<String>) -> Result<ActionResult, String> {
-    elevated_action(app, "install", guid, lang).await
+async fn install_output(guid: String, lang: Option<String>) -> Result<ActionResult, String> {
+    elevated_action("install", guid, lang).await
 }
 
 #[tauri::command]
-async fn uninstall_output(app: tauri::AppHandle, guid: String, lang: Option<String>) -> Result<ActionResult, String> {
-    elevated_action(app, "uninstall", guid, lang).await
+async fn uninstall_output(guid: String, lang: Option<String>) -> Result<ActionResult, String> {
+    elevated_action("uninstall", guid, lang).await
 }
 
 pub fn run() {

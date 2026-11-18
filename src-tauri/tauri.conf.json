@@ -33,7 +33,6 @@
       "icons/128x128@2x.png",
       "icons/icon.ico"
     ],
-    "resources": ["resources/MusixAPO.dll"],
     "windows": {
       "nsis": {
         "installMode": "currentUser",

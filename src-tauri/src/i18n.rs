@@ -13,7 +13,6 @@ impl Lang {
 fn pair(key: &str) -> (&'static str, &'static str) {
     match key {
         "installing" => ("Instalando Musix no endpoint {0}", "Installing Musix on endpoint {0}"),
-        "dll_missing" => ("DLL do APO não encontrada: {0}", "APO DLL not found: {0}"),
         "endpoint_missing" => ("endpoint não encontrado no registro", "endpoint not found in the registry"),
         "data_dir" => ("Pasta de dados: {0} (Usuários e LOCAL SERVICE podem gravar)", "Data folder: {0} (Users and LOCAL SERVICE can write)"),
         "stopping_audio" => ("Parando o áudio do Windows...", "Stopping Windows audio..."),
@@ -36,11 +35,10 @@ fn pair(key: &str) -> (&'static str, &'static str) {
         "ok" => ("OK", "OK"),
         "error" => ("ERRO: {0}", "ERROR: {0}"),
         "invalid_endpoint" => ("endpoint inválido: {0}", "invalid endpoint: {0}"),
-        "missing_dll_arg" => ("faltou --dll", "missing --dll"),
         "unknown_action" => ("ação desconhecida: {0}", "unknown action: {0}"),
         "create_dir" => ("criar pasta {0}: {1}", "create folder {0}: {1}"),
         "write_cfg" => ("gravar musix.cfg: {0}", "write musix.cfg: {0}"),
-        "copy_dll" => ("copiar DLL para {0}: {1}", "copy DLL to {0}: {1}"),
+        "write_dll" => ("gravar DLL em {0}: {1}", "write DLL to {0}: {1}"),
         "open_endpoint" => ("abrir chave do endpoint: {0}", "open endpoint key: {0}"),
         "create_fx" => ("criar FxProperties: {0}", "create FxProperties: {0}"),
         "open_fx" => ("abrir FxProperties: {0}", "open FxProperties: {0}"),

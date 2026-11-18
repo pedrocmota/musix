@@ -31,8 +31,9 @@ npm install
 npm run tauri build
 ```
 
-The first command builds the APO and drops the DLL into `src-tauri\resources`;
-the last one produces `Musix.exe` and the installer under
+The first command builds the APO and drops the DLL into `src-tauri\resources`,
+from where the Rust build embeds it into the executable; the last one produces
+`Musix.exe` and the installer under
 `src-tauri\target\release\bundle\nsis\`. `build-apo.cmd` also builds, in
 `apo\build`, `apo_host` (exercises the DLL outside `audiodg`) and `musix_cli`
 (applies the effect to a WAV; `apo\tests\ref_f32.py` checks its output against

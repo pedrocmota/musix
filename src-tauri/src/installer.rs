@@ -1,7 +1,7 @@
 use serde_json::{json, Map, Value};
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use winreg::enums::{HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, KEY_READ, REG_DWORD, REG_MULTI_SZ, REG_SZ};
 use winreg::{RegKey, RegValue};
 
@@ -10,6 +10,8 @@ use crate::i18n::{t, tf, Lang};
 use crate::sec;
 use crate::services;
 use crate::state::{self, CLSID, KEY_DISABLEFX};
+
+const APO_DLL: &[u8] = include_bytes!("../resources/MusixAPO.dll");
 
 pub struct Log {
     file: Option<std::fs::File>,
@@ -38,12 +40,10 @@ impl Log {
 
 pub fn elevated_main(args: &[String]) -> i32 {
     let mut lang = Lang::Pt;
-    let mut dll: Option<PathBuf> = None;
     let mut after = false;
     let mut i = 2;
     while i < args.len() {
         match args[i].as_str() {
-            "--dll" if i + 1 < args.len() => { dll = Some(PathBuf::from(&args[i + 1])); i += 1; }
             "--lang" if i + 1 < args.len() => { lang = Lang::parse(&args[i + 1]); i += 1; }
             "--after" => after = true,
             _ => {}
@@ -59,10 +59,7 @@ pub fn elevated_main(args: &[String]) -> i32 {
         return 2;
     }
     let r = match action.as_str() {
-        "install" => match dll {
-            Some(d) => install(&guid, &d, after, &mut log),
-            None => Err(t(lang, "missing_dll_arg")),
-        },
+        "install" => install(&guid, after, &mut log),
         "uninstall" => uninstall(&guid, &mut log),
         _ => Err(tf(lang, "unknown_action", &[&action])),
     };
@@ -197,12 +194,9 @@ fn prepare_fx_key(lang: Lang, guid: &str) -> Result<RegKey, String> {
     open_fx(lang, guid, true)
 }
 
-fn install(guid: &str, dll_src: &Path, after: bool, log: &mut Log) -> Result<(), String> {
+fn install(guid: &str, after: bool, log: &mut Log) -> Result<(), String> {
     let lang = log.lang;
     log.msg("installing", &[guid]);
-    if !dll_src.is_file() {
-        return Err(tf(lang, "dll_missing", &[&dll_src.display().to_string()]));
-    }
     RegKey::predef(HKEY_LOCAL_MACHINE)
         .open_subkey(state::endpoint_subkey(guid))
         .map_err(|_| t(lang, "endpoint_missing"))?;
@@ -242,11 +236,11 @@ fn install(guid: &str, dll_src: &Path, after: bool, log: &mut Log) -> Result<(),
     let dll_dst = program_dir.join("MusixAPO.dll");
     let mut last = Ok(());
     for _ in 0..10 {
-        last = std::fs::copy(dll_src, &dll_dst).map(|_| ());
+        last = std::fs::write(&dll_dst, APO_DLL);
         if last.is_ok() { break; }
         std::thread::sleep(std::time::Duration::from_millis(300));
     }
-    last.map_err(|e| tf(lang, "copy_dll", &[&dll_dst.display().to_string(), &e.to_string()]))?;
+    last.map_err(|e| tf(lang, "write_dll", &[&dll_dst.display().to_string(), &e.to_string()]))?;
     sec::dll_register(&dll_dst, true)?;
     log.msg("apo_registered", &[&dll_dst.display().to_string()]);
 
