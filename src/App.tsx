@@ -296,14 +296,12 @@ export default function App() {
         <>
           <section className="card slim">
             <div className="lang-row">
-              <span className="switch-label">{t("language")}</span>
-              <div className="seg">
+              <label className="switch-label" htmlFor="lang-select">{t("language")}</label>
+              <select id="lang-select" className="select" value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
                 {LANGS.map((l) => (
-                  <button key={l.id} type="button" className={"seg-btn" + (lang === l.id ? " active" : "")} onClick={() => setLang(l.id)}>
-                    {l.label}
-                  </button>
+                  <option key={l.id} value={l.id}>{l.label}</option>
                 ))}
-              </div>
+              </select>
             </div>
             <div className="lang-row version-row">
               <span className="switch-label">{t("version")}</span>
