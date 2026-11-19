@@ -176,11 +176,32 @@ fn delete_if_present(lang: Lang, fx: &RegKey, name: &str) -> Result<bool, String
     Ok(false)
 }
 
-struct AudioStopped;
+struct AudioStopped(Vec<String>);
 impl Drop for AudioStopped {
     fn drop(&mut self) {
-        let _ = services::start_audio();
+        let _ = services::start_audio(&self.0);
     }
+}
+
+fn stop_audio(log: &mut Log) -> Result<AudioStopped, String> {
+    log.msg("stopping_audio", &[]);
+    let mut audio = AudioStopped(Vec::new());
+    if let Err(e) = services::stop_audio(&mut audio.0) {
+        return Err(tf(log.lang, "stop_audio_failed", &[&e]));
+    }
+    if !audio.0.is_empty() {
+        log.msg("dependents_stopped", &[&audio.0.join(", ")]);
+    }
+    Ok(audio)
+}
+
+fn start_audio(log: &mut Log, audio: &AudioStopped) -> Result<(), String> {
+    log.msg("starting_audio", &[]);
+    let warnings = services::start_audio(&audio.0).map_err(|e| tf(log.lang, "start_audio_failed", &[&e]))?;
+    for w in warnings {
+        log.msg("warning", &[&w]);
+    }
+    Ok(())
 }
 
 fn prepare_fx_key(lang: Lang, guid: &str) -> Result<RegKey, String> {
@@ -216,6 +237,7 @@ fn install(guid: &str, after: bool, log: &mut Log) -> Result<(), String> {
             .map_err(|e| tf(lang, "write_cfg", &[&e.to_string()]))?;
     }
 
+    let audio = stop_audio(log)?;
     let fx = prepare_fx_key(lang, guid)?;
 
     let backup = state::backup_path(guid);
@@ -224,15 +246,12 @@ fn install(guid: &str, after: bool, log: &mut Log) -> Result<(), String> {
         read_backup(lang, &backup)?
     } else {
         let m = snapshot(&fx);
-        std::fs::write(&backup, serde_json::to_string_pretty(&Value::Object(m.clone())).unwrap())
-            .map_err(|e| tf(lang, "write_backup", &[&e.to_string()]))?;
+        let text = serde_json::to_string_pretty(&Value::Object(m.clone())).map_err(|e| tf(lang, "write_backup", &[&e.to_string()]))?;
+        std::fs::write(&backup, text).map_err(|e| tf(lang, "write_backup", &[&e.to_string()]))?;
         log.msg("backup_saved", &[&backup.display().to_string()]);
         m
     };
 
-    log.msg("stopping_audio", &[]);
-    if let Err(e) = services::stop_audio() { log.msg("warning", &[&e]); }
-    let _audio = AudioStopped;
     let dll_dst = program_dir.join("MusixAPO.dll");
     let mut last = Ok(());
     for _ in 0..10 {
@@ -278,8 +297,7 @@ fn install(guid: &str, after: bool, log: &mut Log) -> Result<(), String> {
         fx.set_value(KEY_DISABLEFX, &0u32).map_err(|e| tf(lang, "write_value", &[KEY_DISABLEFX, &e.to_string()]))?;
     }
 
-    log.msg("starting_audio", &[]);
-    services::start_audio()?;
+    start_audio(log, &audio)?;
     log.msg("installed", &[]);
     Ok(())
 }
@@ -294,11 +312,8 @@ fn uninstall(guid: &str, log: &mut Log) -> Result<(), String> {
     sec::enable_privilege("SeTakeOwnershipPrivilege")?;
     sec::enable_privilege("SeRestorePrivilege")?;
     let orig = read_backup(lang, &backup)?;
+    let audio = stop_audio(log)?;
     let fx = prepare_fx_key(lang, guid)?;
-
-    log.msg("stopping_audio", &[]);
-    if let Err(e) = services::stop_audio() { log.msg("warning", &[&e]); }
-    let _audio = AudioStopped;
 
     let removable = keys_we_create();
     for name in state::all_keys() {
@@ -328,8 +343,7 @@ fn uninstall(guid: &str, log: &mut Log) -> Result<(), String> {
         log.msg("remaining", &[&remaining.to_string()]);
     }
 
-    log.msg("starting_audio", &[]);
-    services::start_audio()?;
+    start_audio(log, &audio)?;
     log.msg("removed_done", &[]);
     Ok(())
 }
